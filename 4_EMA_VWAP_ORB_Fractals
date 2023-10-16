@@ -1,0 +1,136 @@
+//@version=5
+//combined and compiled by praveen.p and kirthi 03-Oct-2023 
+//(tradingview.com/u/praveenbecks/) and (tradingview.com/u/kirthiraghav/)
+//credits to author drsweets (https://www.tradingview.com/u/drsweets/) for the multiple EMA
+//credits to the trading view for all the inbuilt scripts
+//feel free to modify and customize - but credit the author
+
+//EMA, VWAP, ORB, Williams Fractal
+
+indicator("4 EMA+VWAP+ORB+Fractals by PKP", overlay=true)
+
+
+// Inputs for EMA lengths
+ema1_length = input.int(9, title="EMA 1 Length", minval=1)
+ema2_length = input.int(20, title="EMA 2 Length", minval=1)
+ema3_length = input.int(50, title="EMA 3 Length", minval=1)
+ema4_length = input.int(200, title="EMA 4 Length", minval=1)
+
+// Calculate EMAs
+ema1 = ta.ema(close, ema1_length)
+ema2 = ta.ema(close, ema2_length)
+ema3 = ta.ema(close, ema3_length)
+ema4 = ta.ema(close, ema4_length)
+
+// Plot EMAs
+plot(ema1, title="EMA 9", color=color.rgb(223, 240, 129),linewidth = 2)
+plot(ema2, title="EMA 20", color=color.rgb(189, 192, 40),linewidth = 2)
+plot(ema3, title="EMA 50", color=color.rgb(142, 201, 211),linewidth = 2)
+plot(ema4, title="EMA 200", color=color.red,linewidth = 3)
+
+
+// Input options
+averageData = input.source(close, title="Average Data Source")
+
+bandOffset = input.float(0.05, title="Price Band Offset (%)", 
+     step=0.05) / 100
+
+// Calculate the volume-weighted average price and its 'noise' bands
+vwapData  = ta.vwap(averageData)
+upperBand = vwapData * (1 + bandOffset)
+lowerBand = vwapData * (1 - bandOffset)
+
+// Plot the average and its band
+plot(vwapData, color=color.rgb(255, 255, 255), title="VWAP",linewidth = 3)
+
+// Colour the chart's bars with prices outside the band
+barColour = if close > upperBand
+    color.green
+else if close < lowerBand
+    color.red
+else
+    color.gray
+
+//barcolor(barColour)
+
+//ORB
+inputMax = input(15, title='ORB total time (minutes)')
+sess = input.session('0915-0930', title='Session Time')
+t = time(timeframe.period, sess + ':1234567')
+hide = timeframe.isintraday and timeframe.multiplier <= inputMax
+
+is_newbar(res) =>
+    ta.change(time(res)) != 0
+in_session = not na(t)
+is_first = in_session and not in_session[1]
+
+orb_high = float(na)
+orb_low = float(na)
+
+if is_first
+    orb_high := high
+    orb_low := low
+    orb_low
+else
+    orb_high := orb_high[1]
+    orb_low := orb_low[1]
+    orb_low
+if high > orb_high and in_session
+    orb_high := high
+    orb_high
+if low < orb_low and in_session
+    orb_low := low
+    orb_low
+
+plot(hide ? orb_high : na, style=plot.style_cross, color=orb_high[1] != orb_high ? na : color.green, title='ORB High', linewidth=2)
+plot(hide ? orb_low : na, style=plot.style_cross, color=orb_low[1] != orb_low ? na : color.red, title='ORB Low', linewidth=2)
+
+//Williams Fractal
+
+// Define "n" as the number of periods and keep a minimum value of 2 for error handling.
+n = input.int(title="Fractral Periods", defval=2, minval=2)
+
+
+// UpFractal
+bool upflagDownFrontier = true
+bool upflagUpFrontier0 = true
+bool upflagUpFrontier1 = true
+bool upflagUpFrontier2 = true
+bool upflagUpFrontier3 = true
+bool upflagUpFrontier4 = true
+
+for i = 1 to n
+    upflagDownFrontier := upflagDownFrontier and (high[n-i] < high[n])
+    upflagUpFrontier0 := upflagUpFrontier0 and (high[n+i] < high[n])
+    upflagUpFrontier1 := upflagUpFrontier1 and (high[n+1] <= high[n] and high[n+i + 1] < high[n])
+    upflagUpFrontier2 := upflagUpFrontier2 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+i + 2] < high[n])
+    upflagUpFrontier3 := upflagUpFrontier3 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+3] <= high[n] and high[n+i + 3] < high[n])
+    upflagUpFrontier4 := upflagUpFrontier4 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+3] <= high[n] and high[n+4] <= high[n] and high[n+i + 4] < high[n])
+flagUpFrontier = upflagUpFrontier0 or upflagUpFrontier1 or upflagUpFrontier2 or upflagUpFrontier3 or upflagUpFrontier4
+
+upFractal = (upflagDownFrontier and flagUpFrontier)
+
+
+// downFractal
+bool downflagDownFrontier = true
+bool downflagUpFrontier0 = true
+bool downflagUpFrontier1 = true
+bool downflagUpFrontier2 = true
+bool downflagUpFrontier3 = true
+bool downflagUpFrontier4 = true
+
+for i = 1 to n
+    downflagDownFrontier := downflagDownFrontier and (low[n-i] > low[n])
+    downflagUpFrontier0 := downflagUpFrontier0 and (low[n+i] > low[n])
+    downflagUpFrontier1 := downflagUpFrontier1 and (low[n+1] >= low[n] and low[n+i + 1] > low[n])
+    downflagUpFrontier2 := downflagUpFrontier2 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+i + 2] > low[n])
+    downflagUpFrontier3 := downflagUpFrontier3 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+i + 3] > low[n])
+    downflagUpFrontier4 := downflagUpFrontier4 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+4] >= low[n] and low[n+i + 4] > low[n])
+flagDownFrontier = downflagUpFrontier0 or downflagUpFrontier1 or downflagUpFrontier2 or downflagUpFrontier3 or downflagUpFrontier4
+
+downFractal = (downflagDownFrontier and flagDownFrontier)
+
+plotshape(downFractal, style=shape.triangledown, location=location.belowbar, offset=-n, color=#F44336, size = size.small)
+plotshape(upFractal, style=shape.triangleup,   location=location.abovebar, offset=-n, color=#009688, size = size.small)
+
+
